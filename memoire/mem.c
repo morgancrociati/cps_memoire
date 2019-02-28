@@ -153,6 +153,80 @@ void *mem_alloc(size_t taille)
 
 void mem_free(void *mem)
 {
+	//On fait - sizeof(size_t) car on a stocké au début du bloc mémoire la taille du bloc
+	size_t *emplacement = mem - sizeof(size_t);
+	size_t taille = *emplacement;
+
+	size_t *memoire = get_memory_adr();
+
+	//On doit ici voir si il y a un bloc libre avant et/ou après
+
+	//On regarde si il y a un bloc libre avant
+	fb *tmpAvant = memoire[0];
+	while (tmpAvant != NULL)
+	{
+		if ((tmpAvant + tmpAvant->size) == emplacement)
+		{
+			break;
+		}
+		tmpAvant = tmpAvant->next;
+	}
+	//On a trouvé un bloc libre pile avant la zone à libérer
+	if (tmpAvant != NULL)
+	{
+		//On augmente donc juste le bloc libre d'avant de taille
+		tmpAvant->size += taille;
+	}
+	//On a pas trouvé de bloc libre pile avant la zone à libérer
+	else
+	{
+		//On crée donc un bloc libre en l'ajoutant en tête de liste de bloc libre
+		((fb *)emplacement)->size = taille;
+		((fb *)emplacement)->next = memoire[0];
+		memoire[0] = emplacement;
+	}
+	//On regarde si il y a un bloc mémoire après
+	fb *tmpApres = memoire[0];
+	/*tmp représente le bloc libre pile avant tmpApres*/
+	fb *tmp = NULL;
+	while (tmpApres != NULL)
+	{
+		if (tmpApres == emplacement + taille)
+		{
+			break;
+		}
+		tmp = tmpApres;
+		tmpApres = tmpApres->next;
+	}
+	//On a trouvé un bloc libre pile après notre zone à libérer
+	if (tmpApres != NULL)
+	{
+		//Si il y avait un bloc libre avant la zone à libérer
+		if (tmpAvant != NULL)
+		{
+			//On augmente encore la taille du bloc d'avant
+			tmpAvant->size += tmpApres->size;
+		}
+		//Il n'y avait pas de bloc libre avant la zone à libérer
+		else
+		{
+			//On augmente donc la taille du nouveau bloc libre qu'on a créé
+			((fb *)emplacement)->size += tmpApres->size;
+		}
+		//On doit maintenant penser à supprimer le bloc libre arrivant pile après la zone à libérer
+		//Le bloc libre suivant notre bloc à supprimer n'est pas NULL
+		if (tmp != NULL)
+		{
+			//On fait juste sauter l'ancien bloc libre
+			tmp->next = tmp->next->next;
+		}
+		//Le bloc libre à supprimer était en tête de la liste
+		else
+		{
+			tmp = memoire[0];
+			memoire[0] = tmp->next;
+		}
+	}
 }
 
 struct fb *mem_fit_first(struct fb *list, size_t size)

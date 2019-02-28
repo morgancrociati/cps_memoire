@@ -23,6 +23,8 @@ a <- alignement
 #define align(a) a + (ALIGNMENT - a%ALIGNMENT)%ALIGNEMENT
 */
 
+#define abs(a) (a < 0) ? (-a) : (a)
+
 typedef char octet;
 
 /*
@@ -155,7 +157,11 @@ void mem_free(void *mem)
 
 struct fb *mem_fit_first(struct fb *list, size_t size)
 {
-	return NULL;
+	while (list != NULL && list->size < size)
+	{
+		list = list->next;
+	}
+	return list;
 }
 
 /* Fonction à faire dans un second temps
@@ -179,10 +185,32 @@ size_t mem_get_size(void *zone)
  */
 struct fb *mem_fit_best(struct fb *list, size_t size)
 {
-	return NULL;
+	fb *best = list;
+	register int value = abs(size - best->size);
+	while (list != NULL)
+	{
+		if (abs(size - list->size) < value)
+		{
+			value = abs(size - list->size);
+			best = list;
+		}
+		list = list->next;
+	}
+	return best;
 }
 
 struct fb *mem_fit_worst(struct fb *list, size_t size)
 {
-	return NULL;
+	fb *best = list;
+	register int value = abs(size - best->size);
+	while (list != NULL)
+	{
+		if (abs(size - list->size) > value)
+		{
+			value = abs(size - list->size);
+			best = list;
+		}
+		list = list->next;
+	}
+	return best;
 }

@@ -101,7 +101,7 @@ void *mem_alloc(size_t taille)
 	//On ajoute à la taille assez de place pour stocker la taille dans le bloc de mémoire
 	fb *emplacement = mem_fit_fn(premierFB, actualSize);
 
-	//assert(emplacement != NULL); //Si cela arrive alors il n'y pas assez de place dans la mémoire
+	 //Si cela arrive alors il n'y pas assez de place dans la mémoire
 	if(emplacement == NULL){
 		return NULL;
 	}

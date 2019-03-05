@@ -32,9 +32,6 @@ libmalloc.so: malloc_stub.o
 test_ls: libmalloc.so
 	LD_PRELOAD=./libmalloc.so ls
 
-mem_test: mem_test.o common.o mem.o
-	$(CC) -o $@ $^
-
 # nettoyage
 clean:
 	$(RM) *.o $(PROGRAMS) libmalloc.so .*.deps

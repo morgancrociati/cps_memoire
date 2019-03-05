@@ -41,7 +41,7 @@ int main(int argc, char *argv[]) {
 	scanf("%c", reponse);
 
 	if(*reponse == 'y'){
-		printf("Cool\n");
+		printf("Bien\n");
 	}
 	else{
 		printf("Dommage\n");

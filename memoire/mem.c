@@ -1,9 +1,12 @@
 #include "mem.h"
 #include "common.h"
- 
+
 #include <assert.h>
 #include <stddef.h>
 #include <string.h>
+
+//A SUPPRIMER
+#include <stdio.h>
 
 // constante définie dans gcc seulement
 #ifdef __BIGGEST_ALIGNMENT__
@@ -18,7 +21,7 @@ v <- nombre à aligner
 a <- alignement
 */
 #define align(v, a) \
-	(((v) + (a)-1) & ~((a)-1)) 
+	(((v) + (a)-1) & ~((a)-1))
 
 /*
 #define align(a) a + (ALIGNMENT - a%ALIGNMENT)%ALIGNEMENT
@@ -67,17 +70,29 @@ void mem_init(void *mem, size_t taille)
 	premierFB->size = taille - tailleHeader;
 	premierFB->next = NULL; //Pas d'autre block libre pour l'instant
 
-	mem_fit(&mem_fit_worst);
+	mem_fit(&mem_fit_first);
 }
 
 void mem_show(void (*print)(void *, size_t, int))
 {
-	/* ... */
-	while (/* ... */ 0)
+	size_t *memoire = get_memory_adr();
+	size_t tailleMemoire = get_memory_size();
+
+	fb *tmp = (fb *)memoire[0];
+	size_t posInMem = (size_t)memoire + align(sizeof(size_t), ALIGNMENT);
+
+	while (posInMem < (size_t)memoire + tailleMemoire)
 	{
-		/* ... */
-		print(/* ... */ NULL, /* ... */ 0, /* ... */ 0);
-		/* ... */
+		if (posInMem == (size_t)tmp)
+		{
+			print((size_t *)posInMem, *((size_t *)posInMem), 1);
+			tmp = tmp->next;
+		}
+		else
+		{
+			print((size_t *)(posInMem + sizeof(size_t)), *((size_t *)posInMem) - sizeof(size_t), 0);
+		}
+		posInMem += *((size_t *)posInMem);
 	}
 }
 
@@ -102,7 +117,8 @@ void *mem_alloc(size_t taille)
 	fb *emplacement = mem_fit_fn(premierFB, actualSize);
 
 	//assert(emplacement != NULL); //Si cela arrive alors il n'y pas assez de place dans la mémoire
-	if(emplacement == NULL){
+	if (emplacement == NULL)
+	{
 		return NULL;
 	}
 
@@ -113,35 +129,38 @@ void *mem_alloc(size_t taille)
 	place restante.*/
 	if (emplacement->size > actualSize)
 	{
-		fb *prochainEmplacement = (fb *)(emplacement + actualSize);
+		fb *prochainEmplacement = (fb *)((size_t)emplacement + actualSize);
 		prochainEmplacement->size = emplacement->size - actualSize;
+		prochainEmplacement->next = emplacement->next;
 
-		//On veut ici supprimer l'ancien block libre
-		//Cas où le bloc libre n'était pas le premier block libre
-		if (premierFB != emplacement)
+		//Si l'emplacement libre trouvé est en faites aussi le premier emplacement libre
+		if (premierFB == emplacement)
+		{
+			memoire[0] = (size_t)prochainEmplacement;
+		}
+		//Sinon l'emplacement libre trouvé n'est pas le premier emplacement libre
+		else
 		{
 			tmp = premierFB;
-			while (tmp->next != emplacement)
+			while (tmp->next != NULL && tmp->next < prochainEmplacement)
 			{
 				tmp = tmp->next;
 			}
-			tmp->next = tmp->next->next;
+			tmp->next = prochainEmplacement;
 		}
-
-		//On ajoute notre nouveau bloc libre à notre liste chaînée de bloc libre
-		prochainEmplacement->next = premierFB->next;
-		memoire[0] = (size_t)prochainEmplacement;
 	}
 	//L'emplacement trouvé fait exactement la taille demandé
 	else
 	{
-		tmp = premierFB;
-		if (tmp == emplacement)
+		//Si l'emplacement libre trouvé est le le premier bloc libre
+		if (premierFB == emplacement)
 		{
 			memoire[0] = (size_t)emplacement->next;
 		}
+		//Sinon l'emplacement libre trouvé n'est pas le premier bloc libre
 		else
 		{
+			tmp = premierFB;
 			while (tmp->next != emplacement)
 			{
 				tmp = tmp->next;
@@ -152,7 +171,9 @@ void *mem_alloc(size_t taille)
 
 	*((size_t *)emplacement) = actualSize;
 
-	return emplacement + sizeof(size_t);
+	fb *resultat = (fb *)((size_t)emplacement + sizeof(size_t));
+
+	return resultat;
 }
 
 void mem_free(void *mem)
@@ -165,70 +186,77 @@ void mem_free(void *mem)
 
 	//On doit ici voir si il y a un bloc libre avant et/ou après
 
-	//On regarde si il y a un bloc libre avant
-	fb *tmpAvant = (fb*)memoire[0];
-	while (tmpAvant != NULL)
+	fb *beforeTmp = NULL;
+	fb *tmp = (fb *)memoire[0];
+
+	//Tant que notre bloc libre courrante existe
+	//et que son adresse est plus petite que notre emplacement
+	while (tmp != NULL && tmp < (fb *)emplacement)
 	{
-		if (((size_t)tmpAvant + tmpAvant->size) == (size_t)emplacement)
+		//Si le bloc libre courant est pile avant notre emplacement
+		if (((size_t)tmp + tmp->size) == (size_t)emplacement)
 		{
+			//On augmente alors la taille de ce bloc libre
+			tmp->size += taille;
 			break;
 		}
-		tmpAvant = tmpAvant->next;
+		beforeTmp = tmp;
+		tmp = tmp->next;
 	}
-	//On a trouvé un bloc libre pile avant la zone à libérer
-	if (tmpAvant != NULL)
+
+	//Si il n'y a aucun bloc libre collé avant notre emplacement et après notre emplacement
+	if (tmp == NULL)
 	{
-		//On augmente donc juste le bloc libre d'avant de taille
-		tmpAvant->size += taille;
-	}
-	//On a pas trouvé de bloc libre pile avant la zone à libérer
-	else
-	{
-		//On crée donc un bloc libre en l'ajoutant en tête de liste de bloc libre
 		((fb *)emplacement)->size = taille;
-		((fb *)emplacement)->next = (fb*)memoire[0];
-		memoire[0] = (size_t)emplacement;
-	}
-	//On regarde si il y a un bloc mémoire après
-	fb *tmpApres = (fb*)memoire[0];
-	/*tmp représente le bloc libre pile avant tmpApres*/
-	fb *tmp = NULL;
-	while (tmpApres != NULL)
-	{
-		if ((size_t)tmpApres == (size_t)emplacement + taille)
+		((fb *)emplacement)->next = NULL;
+		//Si la mémoire était pleine et qu'il n'y avait aucun bloc libre
+		if (beforeTmp == NULL)
 		{
-			break;
+			memoire[0] = (size_t)emplacement;
 		}
-		tmp = tmpApres;
-		tmpApres = tmpApres->next;
-	}
-	//On a trouvé un bloc libre pile après notre zone à libérer
-	if (tmpApres != NULL)
-	{
-		//Si il y avait un bloc libre avant la zone à libérer
-		if (tmpAvant != NULL)
-		{
-			//On augmente encore la taille du bloc d'avant
-			tmpAvant->size += tmpApres->size;
-		}
-		//Il n'y avait pas de bloc libre avant la zone à libérer
+		//Sinon il y avait des blocs libres avant notre emplacement
+		//beforeTmp représente ici le dernier bloc libre situé avant nous
 		else
 		{
-			//On augmente donc la taille du nouveau bloc libre qu'on a créé
-			((fb *)emplacement)->size += tmpApres->size;
+			beforeTmp->next = (fb *)emplacement;
 		}
-		//On doit maintenant penser à supprimer le bloc libre arrivant pile après la zone à libérer
-		//Le bloc libre suivant notre bloc à supprimer n'est pas NULL
-		if (tmp != NULL)
+	}
+	//Sinon si il y avait des bloc libre collé avant notre emplacement
+	//tmp représente ici le premier bloc libre après notre emplacement
+	else if (tmp > (fb *)emplacement)
+	{
+		((fb *)emplacement)->size = taille;
+
+		//Si il n'y avait aucun bloc libre avant notre emplacement
+		if (beforeTmp == NULL)
 		{
-			//On fait juste sauter l'ancien bloc libre
+			memoire[0] = (size_t)emplacement;
+		}
+		//Sinon il y avait un bloc libre avant notre emplacement
+		else
+		{
+			beforeTmp->next = (fb *)emplacement;
+		}
+
+		//Si le bloc libre suivant est pile après
+		if ((size_t)emplacement + taille == (size_t)tmp)
+		{
+			((fb *)emplacement)->size += tmp->size;
+			((fb *)emplacement)->next = tmp->next;
+		}
+		else
+		{
+			((fb *)emplacement)->next = tmp;
+		}
+		tmp = (fb *)emplacement;
+	}
+	//Sinon si il y avait un bloc libre pile avant notre emplacement
+	else if (tmp < (fb *)emplacement)
+	{
+		if ((size_t)tmp + tmp->size == (size_t)tmp->next)
+		{
+			tmp->size += tmp->next->size;
 			tmp->next = tmp->next->next;
-		}
-		//Le bloc libre à supprimer était en tête de la liste
-		else
-		{
-			tmp = (fb*)memoire[0];
-			memoire[0] = (size_t)tmp->next;
 		}
 	}
 }
@@ -251,11 +279,8 @@ struct fb *mem_fit_first(struct fb *list, size_t size)
  */
 size_t mem_get_size(void *zone)
 {
-	/* zone est une adresse qui a été retournée par mem_alloc() */
-
-	/* la valeur retournée doit être la taille maximale que
-	 * l'utilisateur peut utiliser dans cette zone */
-	return 0;
+	size_t *size = zone - sizeof(size_t);
+	return *size;
 }
 
 /* Fonctions facultatives

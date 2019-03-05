@@ -1,6 +1,6 @@
 #include "mem.h"
 #include "common.h"
-
+ 
 #include <assert.h>
 #include <stddef.h>
 #include <string.h>
@@ -13,6 +13,7 @@
 #endif
 
 /*
+mlmlmlm
 v <- nombre à aligner
 a <- alignement
 */

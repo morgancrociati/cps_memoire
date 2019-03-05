@@ -9,7 +9,7 @@ CFLAGS+= -DDEBUG
 # pour tester avec ls
 CFLAGS+= -fPIC
 LDFLAGS= $(HOST32)
-TESTS+=test_init
+TESTS+=test_init mem_test
 PROGRAMS=memshell $(TESTS)
 
 .PHONY: clean all test_ls
@@ -31,6 +31,9 @@ libmalloc.so: malloc_stub.o
 
 test_ls: libmalloc.so
 	LD_PRELOAD=./libmalloc.so ls
+
+mem_test: mem_test.o common.o mem.o
+	$(CC) -o $@ $^
 
 # nettoyage
 clean:

@@ -67,7 +67,7 @@ void mem_init(void *mem, size_t taille)
 	premierFB->size = taille - tailleHeader;
 	premierFB->next = NULL; //Pas d'autre block libre pour l'instant
 
-	mem_fit(&mem_fit_first);
+	mem_fit(&mem_fit_worst);
 }
 
 void mem_show(void (*print)(void *, size_t, int))

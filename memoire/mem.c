@@ -129,7 +129,7 @@ void *mem_alloc(size_t taille)
 	place restante.*/
 	if (emplacement->size > actualSize)
 	{
-		fb *prochainEmplacement = (fb *)((size_t)emplacement + actualSize);
+		fb *prochainEmplacement = (fb *)(((size_t)emplacement) + actualSize);
 		prochainEmplacement->size = emplacement->size - actualSize;
 		prochainEmplacement->next = emplacement->next;
 
@@ -142,7 +142,8 @@ void *mem_alloc(size_t taille)
 		else
 		{
 			tmp = premierFB;
-			while (tmp->next != NULL && tmp->next < prochainEmplacement)
+			//On cherche l'emplacement libre avant l'emplacement que l'on avait trouvé
+			while (tmp->next != NULL && tmp->next < emplacement)
 			{
 				tmp = tmp->next;
 			}
@@ -304,16 +305,98 @@ struct fb *mem_fit_best(struct fb *list, size_t size)
 
 struct fb *mem_fit_worst(struct fb *list, size_t size)
 {
-	fb *best = list;
-	register int value = abs(size - best->size);
+	fb *worst = list;
+	register int value = abs(size - worst->size);
 	while (list != NULL)
 	{
 		if (abs(size - list->size) > value)
 		{
 			value = abs(size - list->size);
-			best = list;
+			worst = list;
 		}
 		list = list->next;
 	}
-	return best;
+	return worst;
+}
+
+//Il faut peut être supprimer l'ancienne emplacement quand on renvoie NULL
+void *mem_realloc(void *old, size_t new_size)
+{
+	size_t *memoire = get_memory_adr();
+	//Il faut aligner la nouvelle taille ainsi que de ne pas oublier de garder la taille du bloc
+	new_size = align(new_size + sizeof(size_t), ALIGNMENT);
+	size_t old_size = mem_get_size(old);
+	size_t emplacement = (size_t)old - sizeof(size_t);
+	fb* premierFB = (fb *)memoire[0];
+	//Si il n'y a plus d'espace libre on renvoie NULL
+	if(premierFB == NULL){
+		return NULL;
+	}
+	//L'utilisation veut une plus grande zone mémoire
+	if (new_size > old_size)
+	{
+		fb *beforetmp = NULL;
+		fb *tmp = premierFB;
+		while (tmp != NULL)
+		{
+			//Si il existe un bloc libre après notre emplacement qui permet de contenir la nouvelle taille
+			if (emplacement + old_size == (size_t)tmp)
+			{
+				//Le bloc libre permet d'avoir exactement la taille demandé
+				if (old_size + tmp->size == new_size)
+				{
+					//Si le bloc libre suivant notre emplacement était le premier bloc libre
+					if (beforetmp == NULL)
+					{
+						memoire[0] = (size_t)tmp->next;
+					}
+					//Sinon il y avait d'autre bloc libre avant
+					else
+					{
+						beforetmp->next = tmp->next;
+					}
+					*((size_t *)emplacement) = new_size;
+					//On a pu juste augmenter la taille de l'ancien emplacement
+					return old;
+				}
+				//Le bloc libre permet d'avoir une taille plus grande que celle demandé
+				else if (old_size + tmp->size > new_size)
+				{
+					fb *nouveauFB = (fb *)(emplacement + new_size);
+					nouveauFB->next = tmp->next;
+					nouveauFB->size = (old_size + tmp->size) - new_size;
+					if (beforetmp == NULL)
+					{
+						memoire[0] = (size_t)nouveauFB;
+					}
+					//Sinon il y avait d'autre bloc libre avant
+					else
+					{
+						beforetmp->next = nouveauFB;
+					}
+					//On a pu juste augmenter la taille de l'ancien emplacement
+					return old;
+				}
+				break;
+			}
+			beforetmp = tmp;
+			tmp = tmp->next;
+		}
+		//Si on arrive ici alors il n'y avait pas de bloc libre pile après (ou du moins pas assez grand)
+		//On cherche un nouvelle emplacement mémoire avec notre nouvelle taille
+		octet* nouvelleEmplacement = mem_alloc(new_size - sizeof(size_t)); //On avait ajouté la taille de la taille
+		//Si il n'y a pas la place de stocké ça en mémoire on renvoie NULL
+		if(nouvelleEmplacement == NULL){
+			return NULL;
+		}
+		//On copie les anciennes données
+		for(int i = sizeof(size_t); i < old_size; i++){
+			nouvelleEmplacement[i] = ((octet*)old)[i];
+		}
+		//Il faut maintenant supprimer l'ancien bloc
+		mem_free(old);
+		return nouvelleEmplacement;
+	}
+	//Peut être faut il faire le cas si l'utilisateur veut diminuer de taille
+	return old;
 }

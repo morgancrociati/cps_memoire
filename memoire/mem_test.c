@@ -38,7 +38,9 @@ int main(int argc, char *argv[]) {
 
 	char* reponse = mem_alloc(sizeof(char));
 
-	scanf("%c", reponse);
+	//scanf("%c", reponse);
+
+	*reponse = 'y';
 
 	if(*reponse == 'y'){
 		printf("Bien\n");

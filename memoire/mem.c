@@ -108,7 +108,11 @@ void *mem_alloc(size_t taille)
 	size_t *memoire = get_memory_adr();
 
 	fb *premierFB = (fb *)memoire[0];
-	assert(premierFB != NULL); //Si cela arrive alors la mémoire est pleine
+	//assert(premierFB != NULL); //Si cela arrive alors la mémoire est pleine
+	if (premierFB == NULL)
+	{
+		return NULL;
+	}
 
 	size_t actualSize = align(taille + sizeof(size_t), ALIGNMENT);
 
@@ -182,6 +186,8 @@ void mem_free(void *mem)
 	//On fait - sizeof(size_t) car on a stocké au début du bloc mémoire la taille du bloc
 	size_t *emplacement = mem - sizeof(size_t);
 	size_t taille = *emplacement;
+	assert(taille > 0); //Il y a une erreur si la taille du bloc est égal à 0
+
 
 	size_t *memoire = get_memory_adr();
 
@@ -319,6 +325,34 @@ struct fb *mem_fit_worst(struct fb *list, size_t size)
 	return worst;
 }
 
+struct fb *mem_fit_balanced(struct fb *list, size_t size)
+{
+	fb *worst = list;
+	fb *best = list;
+	register int valueW = abs(size - worst->size);
+	register int valueB = abs(size - best->size);
+	while (list != NULL)
+	{
+		if (abs(size - list->size) > valueW)
+		{
+			valueW = abs(size - list->size);
+			worst = list;
+		}
+		else if (abs(size - list->size) < valueB)
+		{
+			valueB = abs(size - list->size);
+			best = list;
+		}
+		list = list->next;
+	}
+	if(valueB == 0){
+		return best;
+	}
+	else{
+		return worst;
+	}
+}
+
 //Il faut peut être supprimer l'ancienne emplacement quand on renvoie NULL
 void *mem_realloc(void *old, size_t new_size)
 {
@@ -327,9 +361,10 @@ void *mem_realloc(void *old, size_t new_size)
 	new_size = align(new_size + sizeof(size_t), ALIGNMENT);
 	size_t old_size = mem_get_size(old);
 	size_t emplacement = (size_t)old - sizeof(size_t);
-	fb* premierFB = (fb *)memoire[0];
+	fb *premierFB = (fb *)memoire[0];
 	//Si il n'y a plus d'espace libre on renvoie NULL
-	if(premierFB == NULL){
+	if (premierFB == NULL)
+	{
 		return NULL;
 	}
 	//L'utilisation veut une plus grande zone mémoire
@@ -384,14 +419,16 @@ void *mem_realloc(void *old, size_t new_size)
 		}
 		//Si on arrive ici alors il n'y avait pas de bloc libre pile après (ou du moins pas assez grand)
 		//On cherche un nouvelle emplacement mémoire avec notre nouvelle taille
-		octet* nouvelleEmplacement = mem_alloc(new_size - sizeof(size_t)); //On avait ajouté la taille de la taille
+		octet *nouvelleEmplacement = mem_alloc(new_size - sizeof(size_t)); //On avait ajouté la taille de la taille
 		//Si il n'y a pas la place de stocké ça en mémoire on renvoie NULL
-		if(nouvelleEmplacement == NULL){
+		if (nouvelleEmplacement == NULL)
+		{
 			return NULL;
 		}
 		//On copie les anciennes données
-		for(int i = sizeof(size_t); i < old_size; i++){
-			nouvelleEmplacement[i] = ((octet*)old)[i];
+		for (int i = sizeof(size_t); i < old_size; i++)
+		{
+			nouvelleEmplacement[i] = ((octet *)old)[i];
 		}
 		//Il faut maintenant supprimer l'ancien bloc
 		mem_free(old);

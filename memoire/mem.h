@@ -22,5 +22,6 @@ void mem_fit(mem_fit_function_t*);
 mem_fit_function_t mem_fit_first;
 mem_fit_function_t mem_fit_worst;
 mem_fit_function_t mem_fit_best;
+mem_fit_function_t mem_fit_balanced;
 
 #endif

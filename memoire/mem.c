@@ -5,9 +5,6 @@
 #include <stddef.h>
 #include <string.h>
 
-//A SUPPRIMER
-#include <stdio.h>
-
 // constante définie dans gcc seulement
 #ifdef __BIGGEST_ALIGNMENT__
 #define ALIGNMENT __BIGGEST_ALIGNMENT__
@@ -16,7 +13,6 @@
 #endif
 
 /*
-mlmlmlm
 v <- nombre à aligner
 a <- alignement
 */
@@ -70,7 +66,7 @@ void mem_init(void *mem, size_t taille)
 	premierFB->size = taille - tailleHeader;
 	premierFB->next = NULL; //Pas d'autre block libre pour l'instant
 
-	mem_fit(&mem_fit_first);
+	mem_fit(&mem_fit_balanced);
 }
 
 void mem_show(void (*print)(void *, size_t, int))
@@ -291,12 +287,19 @@ struct fb *mem_fit_best(struct fb *list, size_t size)
 {
 	fb *best = list;
 	register int value = abs(size - best->size);
+	if(value == 0){
+		return best;
+	}
+	list = list->next;
 	while (list != NULL)
 	{
 		if (abs(size - list->size) < value)
 		{
 			value = abs(size - list->size);
 			best = list;
+			if(value == 0){
+				return best;
+			}
 		}
 		list = list->next;
 	}
@@ -307,6 +310,7 @@ struct fb *mem_fit_worst(struct fb *list, size_t size)
 {
 	fb *worst = list;
 	register int value = abs(size - worst->size);
+	list = list->next;
 	while (list != NULL)
 	{
 		if (abs(size - list->size) > value)
@@ -317,6 +321,41 @@ struct fb *mem_fit_worst(struct fb *list, size_t size)
 		list = list->next;
 	}
 	return worst;
+}
+
+struct fb *mem_fit_balanced(struct fb *list, size_t size)
+{
+	fb *best = list;
+	fb *worst = list;
+	register int valueB = abs(size - worst->size);
+	register int valueW = abs(size - best->size);
+	while (list != NULL)
+	{
+		if (abs(size - list->size) > valueW)
+		{
+			valueW = abs(size - list->size);
+			worst = list;
+		}
+		if (abs(size - list->size) < valueB)
+		{
+			valueB = abs(size - list->size);
+			best = list;
+		}
+		list = list->next;
+	}
+	/*Si la taille demandé est inférieur ou égal à une taille pouvant représenter
+	un pointeur pointant sur une variable de taille fixe (c'est à dire pas un tableau
+	pouvant être agrandit). On lui attribut donc l'espace mémoire permettant de remplir
+	les trous de notre mémoire efficacement.*/
+	if(size <= sizeof(size_t) + sizeof(size_t)){
+		return best;
+	}
+	/*La taille demandé est assez grande pour représenter un tableau de valeur (cela pourrait aussi 
+	être une structure ou autre) donc elle a plus de chance d'être agrandit au cours du temps. On lui
+	attribut donc l'espace mémoire le plus grand.*/
+	else{
+		return worst;
+	}
 }
 
 //Il faut peut être supprimer l'ancienne emplacement quand on renvoie NULL
@@ -390,7 +429,7 @@ void *mem_realloc(void *old, size_t new_size)
 			return NULL;
 		}
 		//On copie les anciennes données
-		for(int i = sizeof(size_t); i < old_size; i++){
+		for(int i = 0; i < old_size; i++){
 			nouvelleEmplacement[i] = ((octet*)old)[i];
 		}
 		//Il faut maintenant supprimer l'ancien bloc

@@ -184,7 +184,6 @@ void mem_free(void *mem)
 	size_t taille = *emplacement;
 	assert(taille > 0); //Il y a une erreur si la taille du bloc est égal à 0
 
-
 	size_t *memoire = get_memory_adr();
 
 	//On doit ici voir si il y a un bloc libre avant et/ou après
@@ -293,7 +292,8 @@ struct fb *mem_fit_best(struct fb *list, size_t size)
 {
 	fb *best = list;
 	register int value = abs(size - best->size);
-	if(value == 0){
+	if (value == 0)
+	{
 		return best;
 	}
 	list = list->next;
@@ -303,7 +303,8 @@ struct fb *mem_fit_best(struct fb *list, size_t size)
 		{
 			value = abs(size - list->size);
 			best = list;
-			if(value == 0){
+			if (value == 0)
+			{
 				return best;
 			}
 		}
@@ -353,13 +354,15 @@ struct fb *mem_fit_balanced(struct fb *list, size_t size)
 	un pointeur pointant sur une variable de taille fixe (c'est à dire pas un tableau
 	pouvant être agrandit). On lui attribut donc l'espace mémoire permettant de remplir
 	les trous de notre mémoire efficacement.*/
-	if(size <= sizeof(size_t) + sizeof(size_t)){
+	if (size <= sizeof(size_t) + sizeof(size_t))
+	{
 		return best;
 	}
 	/*La taille demandé est assez grande pour représenter un tableau de valeur (cela pourrait aussi 
 	être une structure ou autre) donc elle a plus de chance d'être agrandit au cours du temps. On lui
 	attribut donc l'espace mémoire le plus grand.*/
-	else{
+	else
+	{
 		return worst;
 	}
 }
@@ -437,8 +440,9 @@ void *mem_realloc(void *old, size_t new_size)
 			return NULL;
 		}
 		//On copie les anciennes données
-		for(int i = 0; i < old_size; i++){
-			nouvelleEmplacement[i] = ((octet*)old)[i];
+		for (int i = 0; i < old_size; i++)
+		{
+			nouvelleEmplacement[i] = ((octet *)old)[i];
 		}
 		//Il faut maintenant supprimer l'ancien bloc
 		mem_free(old);
